@@ -1,0 +1,247 @@
+---
+title: "Linear Regression Lecture"
+output: html_notebook
+---
+
+This lecture notebook works through using **lm()**, graphing residuals, and reading the **summary()** of the model. \
+\
+Bonus: how reading the summary() may (or may not) be accurate!
+
+Add comments and do the exercises in this notebook for full-credit.
+
+# Using LM
+
+### Setup
+
+```{r include = FALSE}
+library(tidyverse)
+library(lubridate)
+
+set.seed(122)
+
+data <- read_csv("lf.csv")
+data <- na.omit(data)
+data <- data[data$income_composition_of_resources != 0, ]
+
+
+data <- data %>% filter(life_expectancy >= 60)
+data <- data %>% filter(life_expectancy <= 80)
+```
+
+```{r}
+head(data)
+
+```
+
+### Red Line
+
+We make a linear regression model by calling lm().
+
+The parameters are a formula and a data set. We pass *life_expectancy \~ income_composition_of_resources* as our formula argument, and *data* as our data argument. Formula will always take the form "y \~ x1 + ... + xn", where y is our response variable and x1...xn are our predictor variables!
+
+```{r}
+model <- lm(life_expectancy ~ income_composition_of_resources, data=data)
+```
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+#### Activity 1
+
+Explore the data and create two new models: one with Measles and one with a variable of your choosing (do NOT choose Year or any column that is not continuous data). We will run these models later.
+
+```{r}
+
+```
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+To get our fitted values, or the values along our line, we call **predict()**.
+
+```{r}
+y_predicted <- predict(model)
+head(y_predicted)
+```
+
+To find our residuals, we take our observed y (*data\$life_expectancy*) and subtract our fitted/predicted values. We can store everything back into a data frame to make graphing easier, and we can **sum()** our residuals to check that they total to 0.
+
+```{r}
+residuals_red <- data$life_expectancy - y_predicted
+head(residuals_red)
+
+residual_data_red <- data.frame(
+  x_points = data$income_composition_of_resources,
+  y_predicted = y_predicted,
+  residual = residuals_red
+)
+
+total_residuals_red <- sum(residual_data_red$residual)
+
+
+round(total_residuals_red, 5) == 0
+```
+
+When we graph our model, it is easier to use geom_smooth, although you can easily graph the fitted points as a line using whatever method you choose.
+
+```{r}
+lm_red <- ggplot(data=data, aes(x=income_composition_of_resources, y=`life_expectancy`)) +
+  geom_point() +
+  geom_smooth(method="lm", se=FALSE, color="red") +
+  geom_segment(data = residual_data_red, aes(x = x_points, xend = x_points, y = y_predicted, yend = y_predicted + residual), color = "pink") +
+  ggtitle("Life Expectancy and Income Composition of Resources") +
+  xlab("Income Composition of Resources") +
+  ylab("Life Expectancy (Age)") +
+  theme_minimal() + 
+  labs(caption = paste("Total sum of residuals (Red) line):", round(total_residuals_red, 2)))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)))
+
+lm_red
+
+```
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+#### Activity 2
+
+Plot the fitted values on the graph of data instead of using geom_smooth. You do not have to use **ggplot()**.
+
+```{r}
+
+```
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+### What does our model tell us?
+
+```{r}
+summary(model)
+```
+
+Our B0 is our (Intercept) estimate of \~49 and our B1 (slope) is the estimate next to "income_composition_of_resources": \~34. We can grab these variables by doing this:
+
+```{r}
+coef(model)[1] 
+coef(model)[2] 
+```
+
+The p value on the far right of "income_composition of resources" shows that this variable is statistically significant, using a p-value of 0.05. 2e-16 is much smaller than 0.05, so the predictor variable we have chosen and it's relationship with our response variable is very likely to *not* be caused by chance. We can also use the signif. codes to see this. The marking denotes the level the p-value falls between. For example, if we want to claim anything less than 0.05 as significant, we would count anything marked with a '\*', '\*\*', and '\*\*\*' as significant.
+
+The residual standard error shows how well the model fits the data set by measuring the standard deviation of the residuals. The smaller this value, the better. This is more useful if we are comparing two models together, or if we use it along with our original graph. Looking at our graph from before, we can see there is some variance, especially around the middle our line. Graphing with other variables available in the data set will give us something to compare to.
+
+```{r}
+lm_red
+```
+
+The next item we see is an R-squared and Adjusted R-squared number. R-squared is the squared sample correlation between the predicted values and the observed values. In our case, we can say that *Income Composition of Resources* explains 58% of the variation in life expectancy. R-squared is biased upward - it can never lower, even with the addition of predictor variables that may not be useful for the model. Adjusted R-squared is meant to increase and decrease.
+
+Finally, we are left with the F-statistic. This statistic determines whether your model is statistically significant compared to a model with no predictor variables. If the p-value for this test is below the significant level you've chosen, then your model typically fits the data better than a model with no predictor variables.
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+#### Activity 3
+
+Run **summary()** with the new model you made in Activity 1.
+
+```{r}
+```
+
+Run **summary()** with the Measles model you made in Activity 1.
+
+```{r}
+```
+
+#### Activity 4
+
+Plot the **lm()** of new model you made in Activity 1.
+
+```{r}
+```
+
+Plot the **lm()** of the Measles model you made in Activity 1.
+
+```{r}
+```
+
+#### Activity 5
+
+Compare the standard error, the R2, f-statistic, etc. Which model fits the data better? Which model fits the data the worst? Why?\
+(Hint: Think of our original assumption of linearity.)
+
+Are the statistics, the graph, or a combination of both more helpful when choosing a model that best fits the data?
+
+```{r}
+```
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+## Understanding the statistics:
+
+How do we know if our statistics are meaningful?
+
+It's difficult.... and context dependent.
+
+Over-fitting can cause our model to give us coefficients that represent noise, rather than the actual relationships we hope to model. Natural variations depending on data and noise may warrant higher p-values being sufficient, or lower R-values being acceptable. **Additionally, many of the statistics reported by lm() require the residuals to have a normal distribution.** We'll tackle that assumption and it's diagnostics next week. They are crucial to determining if our model fits the data well. For now, let's break down some common reasons we might have misleading values when thinking about context and our data.
+
+#### R2
+
+If a model is over-fit, the R2 of the model may be higher than it should be (since it can never lower). The Adjusted R2 is meant to reduce this issue by adjusting for the number of predictors. It can be used to compare the fit of regression models with different numbers of predictors. If there is a large difference between R2 and the Adjusted R2, you can confidently say that your model is over-fitting. This is more helpful when we do multiple linear regression and have multiple predictors, which is why our R2 and Adjusted-R2 values are similar from above.
+
+Sometimes, a low R2 is still a good thing! Some fields have an inherently large amount of unexplainable variation in their data. For example, attempting to explain behavior is difficult and noisy - these studies are expected to have lower R2 scores. Another example: in medicine, a new drug might be highly variable (lots of different side effects) in different patients, but the benefits are statistically significant across the entire study (low p-values). We would have a low R value, but the results are still important!
+
+Think about how much variation you are trying to explain or how much makes sense before you begin the model. Pay attention to the difference between R2 and Adjusted R2, but don't throw out a model just because one is low or over-fitting is obvious!
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+#### Activity 6
+
+Is over-fitting a concern when performing simple linear regression? Why, or why not?
+
+```{r}
+```
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+#### Standard Error
+
+Sometimes, the standard error is more useful than R2. If we had two data-sets of the exact same data, but one data-set had the values cut in half, the R2 of both regressions would be the same. The standard error of the data-set with the half values would be exactly half of the standard error of the other data-set, though. This helps us determine how precise our model would be if we use it to predict: clearly, the model with a lower standard error would be more precise. For a concrete example of this, read through the article below.
+
+[Understanding Standard Error](https://www.statology.org/standard-error-regression/)
+
+#### P-values (T-test)
+
+The p-values next to our predictor variables *only* tells us that there is a statistically significant relationship between the predictor variable and our response variable, but it does not tell us if that relationship is a causal relationship or not. It *only* tells us that there is a correlation.
+
+#### F-statistic
+
+The f-statistic also uses a p-value, and it is more useful in multiple linear regression cases. We'll explore this statistic more next week. For this week, the f-statistic p-value is saying that out model performs statistically significantly better than a model that only used the intercept coefficient. It's still a p-value, so it isn't claiming any sort of causation, but it's typically good to see significance here!
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+#### Activity 7
+
+Change the predictor variable to "Year" and re-run the notebook. Is this an appropriate predictor variable? What do you notice about the p-values for the coefficients and the F-statistic? What about R2?
+
+```{r}
+```
+
+#### Activity 8
+
+Should we judge model behavior solely based off of it's output statistics alone?
+
+(Hint: re-read the bold line at the beginning of this section, and think about your answer to Activity 5.)
+
+```{r}
+```
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+Overall, you should be doing some sort of cross validation if over-fitting is a concern. Several random train/test splits or k-folds to average the accuracy and statistics of your model is one of the best ways to measure it's performance, as long as you do it within the context of your problem. It is not necessary for simple linear regression, where you know your model only has one predictor variable.
+
+## Next Lecture
+
+1.  Cover our other three assumptions and why normal residuals is important (confidence intervals for coefficients, hypothesis tests for coefficients, f-tests, and the prediction intervals).
+
+2.  Cover Diagnostics (How to Check Our Assumptions)
+
+3.  Multiple Linear Regression
+
+4.  How to Use Categorical Predictor Variables
